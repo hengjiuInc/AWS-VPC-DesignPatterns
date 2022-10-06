@@ -1,0 +1,275 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Let's build a VPC environment using AWS CloudFormation!"
+
+Parameters:
+  Project:
+    Type: String
+    Default: project-name
+    Description: Enter the project name.
+
+  Env:
+    Type: String
+    Default: prod
+    AllowedValues:
+     - prod
+     - dev
+     - stg
+    Description: Enter the environment.
+
+  VpcNetworkBlock:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CiderBlock.
+
+  PublicSubnetA:
+    Type: String
+    Default: 10.0.0.0/24
+    Description: PublicSubnet1 AZ-1a.
+
+  PublicSubnetC:
+    Type: String
+    Default: 10.0.1.0/24
+    Description: PublicSubnet2 AZ-1c.
+
+  PrivateSubnetA:
+    Type: String
+    Default: 10.0.100.0/24
+    Description: PrivateSubnet1 AZ-1a.
+
+  PrivateSubnetC:
+    Type: String
+    Default: 10.0.101.0/24
+    Description: PrivateSubnet2 AZ-1c.
+
+Outputs:
+  VpcId:
+    Description: The VPC's ID.
+    Value: !Ref myVPC
+    Export:
+      Name: !Join [ "-", [ !Ref Project, !Ref Env, VPCID ] ]
+
+  VpcCiderBlock:
+    Description: This is the segmentation of the NW.
+    Value: !GetAtt myVPC.CidrBlock
+    Export:
+      Name: !Join [ "-", [ !Ref Project, !Ref Env, CiderBlock ] ]
+
+  Igw:
+    Description: The IGW's ID
+    Value: !Ref myInternetGateway
+    Export:
+      Name: !Join [ "-", [ !Ref Project, !Ref Env, IGWID ] ]
+
+
+
+Resources:
+
+ #=================================
+ # VPCの作成
+ #=================================
+  myVPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref Project, !Ref Env ] ]
+      - Key: "Created by"
+        Value: Cloudformation
+
+ # Public Network Setting
+ #=================================
+ # インターネットゲートウェイの作成
+ #=================================
+  myInternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref Project, !Ref Env ] ]
+      - Key: "Created by"
+        Value: Cloudformation
+
+  myAttachGateway:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      InternetGatewayId: !Ref myInternetGateway
+      VpcId: !Ref myVPC
+
+ #=================================
+ # サブネットの作成
+ #=================================
+  mySubnet01a:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: "ap-northeast-1a"
+      CidrBlock: 10.0.0.0/24
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref Project, !Ref Env, 'PublicSubnet1' ] ]
+      - Key: "Created by"
+        Value: Cloudformation
+      VpcId: !Ref myVPC
+
+  mySubnet01c:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: "ap-northeast-1c"
+      CidrBlock: 10.0.1.0/24
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref Project, !Ref Env, 'PublicSubnet2' ] ]
+      - Key: "Created by"
+        Value: Cloudformation
+      VpcId: !Ref myVPC
+
+
+ #=================================
+ # ルートテーブルの作成
+ #=================================
+  myRouteTable01:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref Project, !Ref Env, 'Public1' ] ]
+      - Key: "Created by"
+        Value: Cloudformation
+      VpcId: !Ref myVPC
+
+  myRouteTableAssociation01a:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref myRouteTable01
+      SubnetId: !Ref mySubnet01a
+
+  myRouteTableAssociation01c:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref myRouteTable01
+      SubnetId: !Ref mySubnet01c
+
+  myRoute01:
+    Type: "AWS::EC2::Route"
+    DependsOn: myAttachGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+      RouteTableId: !Ref myRouteTable01
+
+
+ # Private Network Setting
+ #=================================
+ # NATゲートウェイの作成
+ #=================================
+  myNatA:
+    Type: "AWS::EC2::NatGateway"
+    Properties:
+      AllocationId: !GetAtt myEIPNatA.AllocationId
+      SubnetId: !Ref mySubnet01a
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref Project, !Ref Env, '1' ] ]
+      - Key: "Created by"
+        Value: Cloudformation
+
+  myEIPNatA:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      Domain: vpc
+
+  myNatC:
+    Type: "AWS::EC2::NatGateway"
+    Properties:
+      AllocationId: !GetAtt myEIPNatC.AllocationId
+      SubnetId: !Ref mySubnet01c
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref Project, !Ref Env, '2' ] ]
+      - Key: "Created by"
+        Value: Cloudformation
+
+  myEIPNatC:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      Domain: vpc
+
+ #=================================
+ # サブネットの作成
+ #=================================
+  mySubnet02a:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: "ap-northeast-1a"
+      CidrBlock: 10.0.100.0/24
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref Project, !Ref Env, 'PrivateSubnet1' ] ]
+      - Key: "Created by"
+        Value: Cloudformation
+      VpcId: !Ref myVPC
+
+  mySubnet02c:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: "ap-northeast-1c"
+      CidrBlock: 10.0.101.0/24
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref Project, !Ref Env, 'PrivateSubnet2' ] ]
+      - Key: "Created by"
+        Value: Cloudformation
+      VpcId: !Ref myVPC
+
+ #=================================
+ # ルートテーブルの作成
+ #=================================
+  myRouteTable02a:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref myVPC
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref Project, !Ref Env, 'Private1' ] ]
+      - Key: "Created by"
+        Value: Cloudformation
+
+  myRouteTableAssociation02a:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref mySubnet02a
+      RouteTableId: !Ref myRouteTable02a
+
+  myRoute02a:
+    Type: "AWS::EC2::Route"
+    Properties:
+      RouteTableId: !Ref myRouteTable02a
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref myNatA
+
+  myRouteTable02c:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref myVPC
+      Tags:
+      - Key: Name
+        Value: !Join [ "-", [ !Ref Project, !Ref Env, 'Private2' ] ]
+      - Key: "Created by"
+        Value: Cloudformation
+
+  myRouteTableAssociation02c:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref mySubnet02c
+      RouteTableId: !Ref myRouteTable02c
+
+  myRoute02c:
+    Type: "AWS::EC2::Route"
+    Properties:
+      RouteTableId: !Ref myRouteTable02c
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref myNatC
+
+
