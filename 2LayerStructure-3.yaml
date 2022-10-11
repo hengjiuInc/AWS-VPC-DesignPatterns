@@ -187,26 +187,26 @@ Resources:
       - Key: "Created by"
         Value: Cloudformation
 
-  myNatC:
-    Type: "AWS::EC2::NatGateway"
-    Properties:
-      AllocationId: !GetAtt myEIPNatC.AllocationId
-      SubnetId: !Ref mySubnet01c
-      Tags:
-      - Key: Name
-        Value: !Join [ "-", [ !Ref Project, !Ref Env, '2' ] ]
-      - Key: "Created by"
-        Value: Cloudformation
+#  myNatC:
+#    Type: "AWS::EC2::NatGateway"
+#    Properties:
+#      AllocationId: !GetAtt myEIPNatC.AllocationId
+#      SubnetId: !Ref mySubnet01c
+#      Tags:
+#      - Key: Name
+#        Value: !Join [ "-", [ !Ref Project, !Ref Env, '2' ] ]
+#      - Key: "Created by"
+#        Value: Cloudformation
 
-  myEIPNatC:
-    Type: "AWS::EC2::EIP"
-    Properties:
-      Domain: vpc
-      Tags:
-      - Key: Name
-        Value: !Join [ "-", [ !Ref Project, !Ref Env, 'Nat2' ] ]
-      - Key: "Created by"
-        Value: Cloudformation
+#  myEIPNatC:
+#    Type: "AWS::EC2::EIP"
+#    Properties:
+#      Domain: vpc
+#      Tags:
+#      - Key: Name
+#        Value: !Join [ "-", [ !Ref Project, !Ref Env, 'Nat2' ] ]
+#      - Key: "Created by"
+#        Value: Cloudformation
 
 
  #=================================
@@ -284,6 +284,7 @@ Resources:
     Properties:
       RouteTableId: !Ref myRouteTable02c
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref myNatC
+#      NatGatewayId: !Ref myNatC
+      NatGatewayId: !Ref myNatA
 
 
